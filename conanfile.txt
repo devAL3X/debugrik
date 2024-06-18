@@ -1,0 +1,10 @@
+[requires]
+capstone/5.0.1
+libdwarf/0.9.1
+
+[tool_requires]
+cmake/3.22.6
+
+[generators]
+CMakeDeps
+CMakeToolchain
