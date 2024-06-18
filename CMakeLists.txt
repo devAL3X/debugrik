@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(debugger CXX)
+project(debugrik CXX)
 
 # Add packages from conan
 find_package(capstone REQUIRED)

@@ -3,14 +3,13 @@
 
 #include <unistd.h>
 
-
 class Configuration {
     const char *path;
 
-private:
+  private:
     bool validate();
 
-public:
+  public:
     Configuration(int argc, char **argv);
 
     const char *get_path();

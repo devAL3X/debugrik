@@ -17,11 +17,8 @@
 
 #include "dwarfinfo.hpp"
 /* Global TODO:
-- get rid of `target`
 - get rid of `prinf`
-- add ^C and ^D handling
 */
-
 
 void info_locals(pid_t child_pid, const char *target) {
     auto dwInfo = DwarfInfo(target, child_pid);

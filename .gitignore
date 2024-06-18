@@ -1,5 +1,5 @@
 build/
 CMakeUserPresets.json
-examples/*.elf
+test_binaries/
 .cache/
 .vscode/

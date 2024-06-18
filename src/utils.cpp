@@ -1,8 +1,6 @@
 #include "utils.hpp"
 
-_NORETURN panic(std::string msg) {
-    panic(msg.c_str());
-}
+_NORETURN panic(std::string msg) { panic(msg.c_str()); }
 
 _NORETURN panic(char *buf) {
     printf("%s %s\n", HEADER_PANIC, buf);

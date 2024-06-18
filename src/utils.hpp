@@ -3,7 +3,7 @@
 
 #include <string>
 
-#define HEADER_PANIC    "panic:"
+#define HEADER_PANIC "panic:"
 #define HEADER_DEBUGGER "dbg:"
 
 #define _NORETURN void

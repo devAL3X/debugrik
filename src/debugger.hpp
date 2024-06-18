@@ -5,10 +5,10 @@
 #include "utils.hpp"
 
 #include <sys/ptrace.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/user.h>
 #include <sys/reg.h>
+#include <sys/types.h>
+#include <sys/user.h>
+#include <sys/wait.h>
 
 #define MAX_BREAKPOINTS 100
 
@@ -24,13 +24,13 @@ class Debugger {
     pid_t c_pid;
     const char *target;
 
-private:
+  private:
     void spawn_target();
     void run_debugger();
 
-public:
+  public:
     Debugger(Configuration cfg);
-    
+
     void start(pid_t *gp);
     void kill_target();
 };

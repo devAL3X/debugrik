@@ -1,5 +1,0 @@
-build/
-CMakeUserPresets.json
-examples/*.elf
-.cache/
-.vscode/

@@ -79,8 +79,8 @@ void DwarfInfo::get_function_name_by_rip(Dwarf_Addr rip) {
     }
 }
 
-int DwarfInfo::dwarf_get_entry_offset(Dwarf_Loc_Head_c dw_loclist_head, Dwarf_Unsigned i,
-                           Dwarf_Off &offset) {
+int DwarfInfo::dwarf_get_entry_offset(Dwarf_Loc_Head_c dw_loclist_head,
+                                      Dwarf_Unsigned i, Dwarf_Off &offset) {
     Dwarf_Small dw_lle_value_out;
     Dwarf_Unsigned dw_rawlowpc;
     Dwarf_Unsigned dw_rawhipc;
@@ -165,7 +165,7 @@ void DwarfInfo::print_local_vars_and_values(Dwarf_Debug dbg, Dwarf_Die die) {
                 exit(EXIT_FAILURE);
             }
 
-            // read data from childs stack TODO: handle different datatypes 
+            // read data from childs stack TODO: handle different datatypes
             // (probably using templates)
             unsigned long addr = regs.rbp + 0x10 + offset;
             long value =
