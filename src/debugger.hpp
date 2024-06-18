@@ -3,6 +3,7 @@
 
 #include "cfg.hpp"
 #include "utils.hpp"
+#include "dwarfinfo.hpp"
 
 #include <sys/ptrace.h>
 #include <sys/reg.h>
@@ -23,6 +24,7 @@ static int breakpoint_count;
 class Debugger {
     pid_t c_pid;
     const char *target;
+    DwarfInfo *DwInfo;
 
   private:
     void spawn_target();
@@ -33,6 +35,7 @@ class Debugger {
 
     void start(pid_t *gp);
     void kill_target();
+    void info_locals();
 };
 
 #endif

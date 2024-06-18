@@ -18,19 +18,19 @@
 #include "dwarfinfo.hpp"
 /* Global TODO:
 - get rid of `prinf`
+- move all registers operations to separate function
 */
 
-void info_locals(pid_t child_pid, const char *target) {
-    auto dwInfo = DwarfInfo(target, child_pid);
+void Debugger::info_locals() {
     struct user_regs_struct regs;
-    if (ptrace(PTRACE_GETREGS, child_pid, 0, &regs) < 0) {
+    if (ptrace(PTRACE_GETREGS, c_pid, 0, &regs) < 0) {
         perror("ptrace(GETREGS)");
         exit(EXIT_FAILURE);
     }
 
     printf("Breakpoint hit at address: %llx\n", regs.rip);
 
-    dwInfo.read_dwarf_info();
+    DwInfo->read_dwarf_info();
 }
 
 Debugger::Debugger(Configuration cfg) { target = cfg.get_path(); }
@@ -52,6 +52,7 @@ void Debugger::start(pid_t *gp) {
     if (c_pid == 0) {
         spawn_target();
     } else if (c_pid > 0) {
+        DwInfo = new DwarfInfo(target, c_pid);
         run_debugger();
     } else {
         panic("failed to fork (startup error)");
@@ -129,17 +130,14 @@ void Debugger::run_debugger() {
         } else if (inp == "ir") {
             ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
             printf("RIP: 0x%llx\n", regs.rip);
-            auto dwInfo = DwarfInfo(target, c_pid);
-            dwInfo.get_function_name_by_rip(regs.rip);
-            // get_function_name_by_rip(regs.rip, target);
+            DwInfo->get_function_name_by_rip(regs.rip);
+
         } else if (inp == "s") {
             ptrace(PTRACE_SINGLESTEP, c_pid, 0, 0);
             wait(&wait_status);
         } else if (inp == "il") {
             std::cout << "Locals" << std::endl;
-
-            info_locals(c_pid, target);
-
+            info_locals();
         } else {
             std::cout << "unknown command" << std::endl;
         }

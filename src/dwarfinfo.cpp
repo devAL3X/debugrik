@@ -15,14 +15,6 @@
 
 void DwarfInfo::get_function_name_by_rip(Dwarf_Addr rip) {
     // TODO: printf -> return
-    Dwarf_Debug dbg;
-    Dwarf_Error err;
-
-    if (dwarf_init_path(target, nullptr, 0, DW_GROUPNUMBER_ANY, nullptr,
-                        nullptr, &dbg, &err) != DW_DLV_OK) {
-        std::cerr << "dwarf_init_path() failed." << std::endl;
-        return;
-    }
     Dwarf_Unsigned cu_header_length, abbrev_offset, next_cu_header,
         dw_typeoffset, dw_next_cu_header_offset;
     Dwarf_Half dw_version_stamp, dw_address_size, dw_length_size,
@@ -46,7 +38,6 @@ void DwarfInfo::get_function_name_by_rip(Dwarf_Addr rip) {
                     if (dwarf_tag(child_die, &tag, &err) != DW_DLV_OK) {
                         continue;
                     }
-
                     if (tag == DW_TAG_subprogram) {
                         Dwarf_Addr low_pc, high_pc;
                         Dwarf_Attribute attr_low, attr_high;
@@ -67,7 +58,6 @@ void DwarfInfo::get_function_name_by_rip(Dwarf_Addr rip) {
                             if (dwarf_diename(child_die, &name, &err) ==
                                 DW_DLV_OK) {
                                 printf("Function name: %s\n", name);
-                                dwarf_dealloc(dbg, name, DW_DLA_STRING);
                                 return;
                             }
                         }
@@ -92,7 +82,6 @@ int DwarfInfo::dwarf_get_entry_offset(Dwarf_Loc_Head_c dw_loclist_head,
     Dwarf_Small dw_loclist_source_out;
     Dwarf_Unsigned dw_expression_offset_out;
     Dwarf_Unsigned dw_locdesc_offset_out;
-    Dwarf_Error err;
 
     // get i-th element of location list
     if (dwarf_get_locdesc_entry_d(
@@ -125,7 +114,7 @@ int DwarfInfo::dwarf_get_entry_offset(Dwarf_Loc_Head_c dw_loclist_head,
 }
 
 void DwarfInfo::print_local_vars_and_values(Dwarf_Debug dbg, Dwarf_Die die) {
-    Dwarf_Error err;
+
     Dwarf_Half tag;
     if (dwarf_tag(die, &tag, &err) != DW_DLV_OK) {
         return;
@@ -173,7 +162,6 @@ void DwarfInfo::print_local_vars_and_values(Dwarf_Debug dbg, Dwarf_Die die) {
 
             printf("Variable: %s, Value: %llx\n", die_name, value);
         }
-        dwarf_dealloc(dbg, die_name, DW_DLA_STRING);
     }
 
     Dwarf_Die child;
@@ -189,15 +177,6 @@ void DwarfInfo::print_local_vars_and_values(Dwarf_Debug dbg, Dwarf_Die die) {
 
 // Function to read DWARF info and extract local variables
 void DwarfInfo::read_dwarf_info() {
-    Dwarf_Debug dbg;
-    Dwarf_Error err;
-
-    if (dwarf_init_path(target, nullptr, 0, DW_GROUPNUMBER_ANY, nullptr,
-                        nullptr, &dbg, &err) != DW_DLV_OK) {
-        std::cerr << "dwarf_init_path() failed." << std::endl;
-        return;
-    }
-
     Dwarf_Unsigned cu_header_length, abbrev_offset, next_cu_header,
         dw_typeoffset, dw_next_cu_header_offset;
     Dwarf_Half dw_version_stamp, dw_address_size, dw_length_size,
@@ -218,6 +197,4 @@ void DwarfInfo::read_dwarf_info() {
             print_local_vars_and_values(dbg, cu_die);
         }
     }
-
-    dwarf_finish(dbg);
 }
