@@ -1,9 +1,13 @@
-#include "debugger.hpp"
 #include "dwarfinfo.hpp"
+
+#include "debugger.hpp"
+#include "arch.hpp"
 #include "utils.hpp"
 
 #include <fcntl.h>
+#include <iomanip>
 #include <iostream>
+#include <map>
 #include <string>
 #include <sys/ptrace.h>
 #include <sys/user.h>
@@ -15,23 +19,10 @@
 #include <dwarf.h>
 #include <libdwarf.h>
 
-#include "dwarfinfo.hpp"
 /* Global TODO:
 - get rid of `prinf`
 - move all registers operations to separate function
 */
-
-void Debugger::info_locals() {
-    struct user_regs_struct regs;
-    if (ptrace(PTRACE_GETREGS, c_pid, 0, &regs) < 0) {
-        perror("ptrace(GETREGS)");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("Breakpoint hit at address: %llx\n", regs.rip);
-
-    DwInfo->print_local_vars();
-}
 
 Debugger::Debugger(Configuration cfg) { target = cfg.get_path(); }
 
@@ -61,7 +52,6 @@ void Debugger::start(pid_t *gp) {
 
 void Debugger::run_debugger() {
     int wait_status;
-    struct user_regs_struct regs;
 
     wait(&wait_status);
     while (WIFSTOPPED(wait_status)) {
@@ -71,77 +61,139 @@ void Debugger::run_debugger() {
         std::cin >> inp;
 
         if (inp == "c") {
-            ptrace(PTRACE_CONT, c_pid, 0, 0);
-            wait(&wait_status);
-
-            // Then we got to breakpoint
-            if (WIFSTOPPED(wait_status) && WSTOPSIG(wait_status) == SIGTRAP) {
-                ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
-
-                for (int i = 0; i < breakpoint_count; i++) {
-                    if (regs.rip - 1 == breakpoints[i].addr) {
-                        printf("Breakpoint hit at 0x%lx\n",
-                               breakpoints[i].addr);
-
-                        // Restore original instruction
-                        ptrace(PTRACE_POKETEXT, c_pid,
-                               (void *)breakpoints[i].addr,
-                               (void *)breakpoints[i].original_data);
-
-                        // Move RIP back to the breakpoint address
-                        regs.rip -= 1;
-                        ptrace(PTRACE_SETREGS, c_pid, 0, &regs);
-
-                        // Single step to execute original instruction
-                        ptrace(PTRACE_SINGLESTEP, c_pid, 0, 0);
-
-                        wait(&wait_status);
-
-                        // Reinsert breakpoint
-                        ptrace(PTRACE_POKETEXT, c_pid,
-                               (void *)breakpoints[i].addr,
-                               (void *)(breakpoints[i].original_data &
-                                            0xffffffffffffff00 |
-                                        0xcc));
-                        break;
-                    }
-                }
-            }
+            continue_execution(&wait_status);
         } else if (inp == "b") {
-            unsigned long addr;
-
-            std::cout << "addr: ";
-            std::cin >> std::hex >> addr;
-
-            long data = ptrace(PTRACE_PEEKTEXT, c_pid, (void *)addr, 0);
-
-            long breakpoint = (data & 0xffffffffffffff00) | 0xcc;
-
-            // Save original data
-            breakpoints[breakpoint_count].addr = addr;
-            breakpoints[breakpoint_count].original_data = data;
-            breakpoint_count++;
-
-            ptrace(PTRACE_POKETEXT, c_pid, (void *)addr, (void *)breakpoint);
-            printf("Breakpoint set at 0x%lx\n", addr);
+            set_breakpoint();
         } else if (inp == "exit") {
             std::cout << "bye" << std::endl;
             break;
         } else if (inp == "ir") {
-            ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
-            printf("RIP: 0x%llx\n", regs.rip);
-            std::string name;
-            DwInfo->get_function_name_by_rip(regs.rip, name);
-            std::cout << "Function name: " << name << std::endl;
-
+            info_regs();
         } else if (inp == "s") {
-            ptrace(PTRACE_SINGLESTEP, c_pid, 0, 0);
-            wait(&wait_status);
+            step(&wait_status);
         } else if (inp == "il") {
-            std::cout << "Locals" << std::endl;
             info_locals();
+        } else if (inp == "lf") {
+            list_functions();
         } else {
-            std::cout << "unknown command" << std::endl;
+            unknown();
         }
     }
+}
+
+void Debugger::continue_execution(int *wait_status) {
+    ptrace(PTRACE_CONT, c_pid, 0, 0);
+    wait(wait_status);
+
+    // Then we got to breakpoint
+    if (WIFSTOPPED(*wait_status) && WSTOPSIG(*wait_status) == SIGTRAP) {
+        struct user_regs_struct regs;
+        ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
+
+        for (int i = 0; i < breakpoint_count; i++) {
+            if (regs.rip - 1 == breakpoints[i].addr) {
+                // If it's our breakpoint
+                printf("Breakpoint hit at 0x%lx\n",
+                        breakpoints[i].addr);
+
+                // Restore original instruction
+                ptrace(PTRACE_POKETEXT, c_pid,
+                        (void *)breakpoints[i].addr,
+                        (void *)breakpoints[i].original_data);
+
+                // Execute instructions after restoring
+                regs.rip -= 1;
+                ptrace(PTRACE_SETREGS, c_pid, 0, &regs);
+                ptrace(PTRACE_SINGLESTEP, c_pid, 0, 0);
+
+                // Wait until next breakpoint?
+                wait(wait_status);
+
+                // Reinsert prev breakpoint
+                ptrace(PTRACE_POKETEXT, c_pid,
+                        (void *)breakpoints[i].addr,
+                        (void *)(breakpoints[i].original_data &
+                                    LSB_TRAP_MASK | TRAP_BYTE));
+                break;
+            }
+        }
+    }
+}
+
+void Debugger::step(int *wait_status) {
+    ptrace(PTRACE_SINGLESTEP, c_pid, 0, 0);
+    wait(wait_status);
+}
+
+void Debugger::info_regs() {
+    std::string name;
+    struct user_regs_struct regs;
+
+    ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
+    
+    std::map<std::string, unsigned long long> p_map = {
+      {"rdi", regs.rdi}, {"rsi", regs.rsi}, {"rdx", regs.rdx},
+      {"rcx", regs.rcx}, {"rax", regs.rax}, {" r8", regs.r8},
+      {" r9", regs.r9},  {"r10", regs.r10}, {"r11", regs.r11},
+      {"r12", regs.r12}, {"r13", regs.r13}, {"r14", regs.r14},
+      {"r15", regs.r15}, {"rbx", regs.rbx}, {"rbp", regs.rbp},
+      {"rsp", regs.rsp}, {"rip", regs.rip}, {"efl", regs.eflags},
+    };
+
+    std::cout << "Registers:" << std::endl;
+
+    int modulus = 0;
+    for(auto kv : p_map) {
+        std::cout << kv.first << "=" <<  std::setw(16) << std::setfill('0') << std::hex << kv.second << " ";
+
+        if(++modulus % 3 == 0) {
+            std::cout << std::endl;
+        }
+    }   
+
+    // last newline not sent yet
+    if(modulus % 3 != 0)
+        std::cout << std::endl;
+}
+
+void Debugger::list_functions() {
+    std::string cmd = "nm " + std::string(target) + " | grep '.* T .*'";
+    system(cmd.c_str());
+}
+
+void Debugger::info_locals() {
+    struct user_regs_struct regs;
+    if (ptrace(PTRACE_GETREGS, c_pid, 0, &regs) < 0) {
+        perror("ptrace(GETREGS)");
+        exit(EXIT_FAILURE);
+    }
+
+    DwInfo->print_local_vars();
+}
+
+void Debugger::set_breakpoint() {
+    // uses string as argument
+    unsigned long addr;
+    std::cin >> std::hex >> addr;
+
+    long data = ptrace(PTRACE_PEEKTEXT, c_pid, (void *)addr, 0);
+    long breakpoint = (data & LSB_TRAP_MASK) | TRAP_BYTE;
+
+    // Track using breakpoints
+    breakpoints[breakpoint_count].addr = addr;
+    breakpoints[breakpoint_count].original_data = data;
+    breakpoint_count++;
+
+    // Change the real instruction
+    ptrace(PTRACE_POKETEXT, c_pid, (void *)addr, (void *)breakpoint);
+    printf("Breakpoint set at 0x%lx\n", addr);
+}
+
+void Debugger::unknown() {
+    std::cout << "unknown command" << std::endl;
+}
+
+void todo() {
+    // DwInfo->get_function_name_by_rip(regs.rip, name);
+    // std::cout << "Function name: " << name << std::endl;
 }

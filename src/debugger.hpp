@@ -36,6 +36,15 @@ class Debugger {
     void start(pid_t *gp);
     void kill_target();
     void info_locals();
+
+    // Debugger commands
+    void step(int *status);
+    void unknown();
+    void info_regs();
+    void list_functions();
+    void set_breakpoint();
+    void continue_execution(int *status);
+
 };
 
 #endif
