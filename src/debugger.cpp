@@ -2,15 +2,15 @@
 #include "disassm.hpp"
 #include "dwarfinfo.hpp"
 
-#include "debugger.hpp"
 #include "arch.hpp"
+#include "debugger.hpp"
 #include "utils.hpp"
 
 #include <fcntl.h>
 #include <iomanip>
 #include <iostream>
-#include <string.h>
 #include <map>
+#include <string.h>
 #include <string>
 #include <sys/ptrace.h>
 #include <sys/user.h>
@@ -28,7 +28,7 @@
 */
 
 Debugger::Debugger(Configuration cfg) : is_started(false) {
-    target = cfg.get_path(); 
+    target = cfg.get_path();
     disaska = new Disassm;
 }
 
@@ -101,13 +101,11 @@ void Debugger::continue_execution(int *wait_status) {
         for (int i = 0; i < breakpoint_count; i++) {
             if (regs.rip - 1 == breakpoints[i].addr) {
                 // If it's our breakpoint
-                printf("Breakpoint hit at 0x%lx\n",
-                        breakpoints[i].addr);
+                printf("Breakpoint hit at 0x%lx\n", breakpoints[i].addr);
 
                 // Restore original instruction
-                ptrace(PTRACE_POKETEXT, c_pid,
-                        (void *)breakpoints[i].addr,
-                        (void *)breakpoints[i].original_data);
+                ptrace(PTRACE_POKETEXT, c_pid, (void *)breakpoints[i].addr,
+                       (void *)breakpoints[i].original_data);
 
                 // Execute instructions after restoring
                 regs.rip -= 1;
@@ -118,10 +116,9 @@ void Debugger::continue_execution(int *wait_status) {
                 wait(wait_status);
 
                 // Reinsert prev breakpoint
-                ptrace(PTRACE_POKETEXT, c_pid,
-                        (void *)breakpoints[i].addr,
-                        (void *)(breakpoints[i].original_data &
-                                    LSB_TRAP_MASK | TRAP_BYTE));
+                ptrace(PTRACE_POKETEXT, c_pid, (void *)breakpoints[i].addr,
+                       (void *)(breakpoints[i].original_data & LSB_TRAP_MASK |
+                                TRAP_BYTE));
                 break;
             }
         }
@@ -138,29 +135,30 @@ void Debugger::info_regs() {
     struct user_regs_struct regs;
 
     ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
-    
+
     std::map<std::string, unsigned long long> p_map = {
-      {"rdi", regs.rdi}, {"rsi", regs.rsi}, {"rdx", regs.rdx},
-      {"rcx", regs.rcx}, {"rax", regs.rax}, {" r8", regs.r8},
-      {" r9", regs.r9},  {"r10", regs.r10}, {"r11", regs.r11},
-      {"r12", regs.r12}, {"r13", regs.r13}, {"r14", regs.r14},
-      {"r15", regs.r15}, {"rbx", regs.rbx}, {"rbp", regs.rbp},
-      {"rsp", regs.rsp}, {"rip", regs.rip}, {"efl", regs.eflags},
+        {"rdi", regs.rdi}, {"rsi", regs.rsi}, {"rdx", regs.rdx},
+        {"rcx", regs.rcx}, {"rax", regs.rax}, {" r8", regs.r8},
+        {" r9", regs.r9},  {"r10", regs.r10}, {"r11", regs.r11},
+        {"r12", regs.r12}, {"r13", regs.r13}, {"r14", regs.r14},
+        {"r15", regs.r15}, {"rbx", regs.rbx}, {"rbp", regs.rbp},
+        {"rsp", regs.rsp}, {"rip", regs.rip}, {"efl", regs.eflags},
     };
 
     std::cout << "Registers:" << std::endl;
 
     int modulus = 0;
-    for(auto kv : p_map) {
-        std::cout << kv.first << "=" <<  std::setw(16) << std::setfill('0') << std::hex << kv.second << " ";
+    for (auto kv: p_map) {
+        std::cout << kv.first << "=" << std::setw(16) << std::setfill('0')
+                  << std::hex << kv.second << " ";
 
-        if(++modulus % 3 == 0) {
+        if (++modulus % 3 == 0) {
             std::cout << std::endl;
         }
-    }   
+    }
 
     // last newline not sent yet
-    if(modulus % 3 != 0)
+    if (modulus % 3 != 0)
         std::cout << std::endl;
 }
 
@@ -178,19 +176,21 @@ void Debugger::disassemble() {
         perror("ptrace read");
         ptrace(PTRACE_DETACH, c_pid, nullptr, nullptr);
     } else {
-        // Loop over all breakpoints for reverting changes: now dump contains TRAP instructions
+        // Loop over all breakpoints for reverting changes: now dump contains
+        // TRAP instructions
         for (int i = 0; i < breakpoint_count; i++) {
-            std::string breakpoint_position; 
-            DwInfo->get_function_by_rip(breakpoints[i].addr, breakpoint_position, tmp_low_pc, tmp_high_pc);
-            
-            if(name == breakpoint_position) {
-                // patch_idx contains trap byte
-                int patch_idx = breakpoints[i].addr-tmp_low_pc;
-                code[patch_idx] = (uint8_t) breakpoints[i].original_data;
-            }
+            std::string breakpoint_position;
+            DwInfo->get_function_by_rip(breakpoints[i].addr,
+                                        breakpoint_position, tmp_low_pc,
+                                        tmp_high_pc);
 
+            if (name == breakpoint_position) {
+                // patch_idx contains trap byte
+                int patch_idx = breakpoints[i].addr - tmp_low_pc;
+                code[patch_idx] = (uint8_t)breakpoints[i].original_data;
+            }
         }
-        
+
         std::cout << "assembly:" << std::endl;
         disaska->print_disassembly(code, high_pc - low_pc, low_pc);
     }
@@ -210,7 +210,10 @@ void Debugger::info_locals() {
         exit(EXIT_FAILURE);
     }
 
-    DwInfo->print_local_vars();
+    Dwarf_Addr low_pc, high_pc;
+    std::string func_name;
+    DwInfo->get_function_by_rip(regs.rip, func_name, low_pc, high_pc);
+    DwInfo->print_local_vars((char *)func_name.c_str());
 }
 
 void Debugger::set_breakpoint() {
@@ -231,9 +234,7 @@ void Debugger::set_breakpoint() {
     printf("Breakpoint set at 0x%lx\n", addr);
 }
 
-void Debugger::unknown() {
-    std::cout << "unknown command" << std::endl;
-}
+void Debugger::unknown() { std::cout << "unknown command" << std::endl; }
 
 void todo() {
     // DwInfo->get_function_name_by_rip(regs.rip, name);

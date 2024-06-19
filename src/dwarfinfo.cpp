@@ -13,6 +13,7 @@
 
 #include <dwarf.h>
 #include <libdwarf.h>
+#include <string.h>
 
 void DwarfInfo::dw_init() {
     if (dwarf_init_path(target, nullptr, 0, DW_GROUPNUMBER_ANY, nullptr,
@@ -115,7 +116,8 @@ int DwarfInfo::dwarf_get_entry_offset(Dwarf_Loc_Head_c dw_loclist_head,
     return DW_DLV_ERROR;
 }
 
-void DwarfInfo::traverse_dwarf_tree(Dwarf_Debug dbg, Dwarf_Die die) {
+void DwarfInfo::traverse_dwarf_tree(Dwarf_Debug dbg, Dwarf_Die die,
+                                    char *func_name) {
 
     Dwarf_Half tag;
     if (dwarf_tag(die, &tag, &err) != DW_DLV_OK) {
@@ -149,15 +151,12 @@ void DwarfInfo::traverse_dwarf_tree(Dwarf_Debug dbg, Dwarf_Die die) {
                 dwarf_dealloc_loc_head_c(dw_loclist_head);
             }
 
-            // Get rbp value TODO: replace on get_regs function
             struct user_regs_struct regs;
             if (ptrace(PTRACE_GETREGS, child_pid, 0, &regs) < 0) {
                 perror("ptrace(GETREGS)");
                 exit(EXIT_FAILURE);
             }
 
-            // read data from childs stack TODO: handle different datatypes
-            // (probably using templates)
             unsigned long addr = regs.rbp + 0x10 + offset;
             long value =
                 ptrace(PTRACE_PEEKDATA, child_pid, (void *)addr, nullptr);
@@ -168,17 +167,23 @@ void DwarfInfo::traverse_dwarf_tree(Dwarf_Debug dbg, Dwarf_Die die) {
 
     Dwarf_Die child;
     if (dwarf_child(die, &child, &err) == DW_DLV_OK) {
-        traverse_dwarf_tree(dbg, child);
+        Dwarf_Half tag;
+        char *name = 0;
+        dwarf_tag(die, &tag, &err);
+        dwarf_diename(die, &name, &err);
+        if (!(tag == DW_TAG_subprogram && strcmp(name, func_name) != 0)) {
+            traverse_dwarf_tree(dbg, child, func_name);
+        }
     }
 
     Dwarf_Die sibling;
     if (dwarf_siblingof_b(dbg, die, true, &sibling, &err) == DW_DLV_OK) {
-        traverse_dwarf_tree(dbg, sibling);
+        traverse_dwarf_tree(dbg, sibling, func_name);
     }
 }
 
 // Function to read DWARF info and extract local variables
-void DwarfInfo::print_local_vars() {
+void DwarfInfo::print_local_vars(char *func_name) {
     dw_init();
     Dwarf_Unsigned cu_header_length, abbrev_offset, next_cu_header,
         dw_typeoffset, dw_next_cu_header_offset;
@@ -197,7 +202,7 @@ void DwarfInfo::print_local_vars() {
         Dwarf_Die no_die, cu_die;
 
         if (dwarf_siblingof_b(dbg, no_die, true, &cu_die, &err) == DW_DLV_OK) {
-            traverse_dwarf_tree(dbg, cu_die);
+            traverse_dwarf_tree(dbg, cu_die, func_name);
         }
     }
 }
