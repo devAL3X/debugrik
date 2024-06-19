@@ -4,7 +4,9 @@
 #include "cfg.hpp"
 #include "utils.hpp"
 #include "dwarfinfo.hpp"
+#include "disassm.hpp"
 
+#include <map>
 #include <sys/ptrace.h>
 #include <sys/reg.h>
 #include <sys/types.h>
@@ -23,8 +25,10 @@ static int breakpoint_count;
 
 class Debugger {
     pid_t c_pid;
+    bool is_started;
     const char *target;
     DwarfInfo *DwInfo;
+    Disassm *disaska;
 
   private:
     void spawn_target();
@@ -44,7 +48,10 @@ class Debugger {
     void list_functions();
     void set_breakpoint();
     void continue_execution(int *status);
+    void disassemble();
 
 };
+
+
 
 #endif

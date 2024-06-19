@@ -27,7 +27,10 @@
 - move all registers operations to separate function
 */
 
-Debugger::Debugger(Configuration cfg) { target = cfg.get_path(); }
+Debugger::Debugger(Configuration cfg) : is_started(false) {
+    target = cfg.get_path(); 
+    disaska = new Disassm;
+}
 
 void Debugger::spawn_target() {
     o_log("spawning the target", target);
@@ -55,8 +58,8 @@ void Debugger::start(pid_t *gp) {
 
 void Debugger::run_debugger() {
     int wait_status;
-
     wait(&wait_status);
+
     while (WIFSTOPPED(wait_status)) {
         std::string inp;
 
@@ -78,6 +81,8 @@ void Debugger::run_debugger() {
             info_locals();
         } else if (inp == "lf") {
             list_functions();
+        } else if (inp == "dis") {
+            disassemble();
         } else {
             unknown();
         }
@@ -157,6 +162,40 @@ void Debugger::info_regs() {
     // last newline not sent yet
     if(modulus % 3 != 0)
         std::cout << std::endl;
+}
+
+void Debugger::disassemble() {
+    struct user_regs_struct regs;
+    ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
+
+    Dwarf_Addr low_pc, high_pc, tmp_low_pc, tmp_high_pc;
+    std::string name;
+
+    DwInfo->get_function_by_rip(regs.rip, name, low_pc, high_pc);
+    uint8_t *code = new uint8_t[high_pc - low_pc];
+
+    if (!read_process_memory(c_pid, low_pc, code, high_pc - low_pc)) {
+        perror("ptrace read");
+        ptrace(PTRACE_DETACH, c_pid, nullptr, nullptr);
+    } else {
+        // Loop over all breakpoints for reverting changes: now dump contains TRAP instructions
+        for (int i = 0; i < breakpoint_count; i++) {
+            std::string breakpoint_position; 
+            DwInfo->get_function_by_rip(breakpoints[i].addr, breakpoint_position, tmp_low_pc, tmp_high_pc);
+            
+            if(name == breakpoint_position) {
+                // patch_idx contains trap byte
+                int patch_idx = breakpoints[i].addr-tmp_low_pc;
+                code[patch_idx] = (uint8_t) breakpoints[i].original_data;
+            }
+
+        }
+        
+        std::cout << "assembly:" << std::endl;
+        disaska->print_disassembly(code, high_pc - low_pc, low_pc);
+    }
+
+    delete[] code;
 }
 
 void Debugger::list_functions() {
