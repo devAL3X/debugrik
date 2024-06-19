@@ -212,14 +212,7 @@ void Debugger::info_regs() {
 
     ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
 
-    std::map<std::string, unsigned long long> p_map = {
-        {"rdi", regs.rdi}, {"rsi", regs.rsi}, {"rdx", regs.rdx},
-        {"rcx", regs.rcx}, {"rax", regs.rax}, {" r8", regs.r8},
-        {" r9", regs.r9},  {"r10", regs.r10}, {"r11", regs.r11},
-        {"r12", regs.r12}, {"r13", regs.r13}, {"r14", regs.r14},
-        {"r15", regs.r15}, {"rbx", regs.rbx}, {"rbp", regs.rbp},
-        {"rsp", regs.rsp}, {"rip", regs.rip}, {"efl", regs.eflags},
-    }; 
+
     std::map<std::string, unsigned long long> p_map = expand_regs(regs);
 
     std::cout << "Registers:" << std::endl;
