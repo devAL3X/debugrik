@@ -1,7 +1,5 @@
-#include "debugger.hpp"
 #include "disassm.hpp"
 #include "dwarfinfo.hpp"
-
 #include "debugger.hpp"
 #include "arch.hpp"
 #include "utils.hpp"
@@ -60,7 +58,7 @@ void Debugger::run_debugger() {
     int wait_status;
     wait(&wait_status);
 
-    while (WIFSTOPPED(wait_status)) {
+    outer: while (WIFSTOPPED(wait_status)) {
         std::string inp;
 
         std::cout << "dbg> ";
@@ -74,15 +72,17 @@ void Debugger::run_debugger() {
             std::cout << "bye" << std::endl;
             break;
         } else if (inp == "ir") {
-            info_regs();
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) info_regs();
         } else if (inp == "s") {
-            step(&wait_status);
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) step(&wait_status);
         } else if (inp == "il") {
-            info_locals();
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) info_locals();
         } else if (inp == "lf") {
             list_functions();
         } else if (inp == "dis") {
-            disassemble();
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) disassemble();
+        } else if (inp == "r") {
+            run_requirement(!is_started, MSG_ALREADY_STARTED) continue_execution(&wait_status);
         } else {
             unknown();
         }
@@ -91,6 +91,8 @@ void Debugger::run_debugger() {
 
 void Debugger::continue_execution(int *wait_status) {
     ptrace(PTRACE_CONT, c_pid, 0, 0);
+    is_started = true;
+    
     wait(wait_status);
 
     // Then we got to breakpoint

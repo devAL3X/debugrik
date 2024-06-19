@@ -15,6 +15,16 @@
 
 #define MAX_BREAKPOINTS 100
 
+#define MSG_SHOULD_BE_RUNNED "target not started"
+#define MSG_ALREADY_STARTED  "target is already in run"
+
+
+#define run_requirement(is_running, msg) \
+    if(!is_running) { \
+        std::cout << msg << std::endl; \
+        continue; \
+    } \
+
 struct breakpoint {
     unsigned long addr;
     long original_data;
