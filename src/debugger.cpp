@@ -1,9 +1,11 @@
 #include "debugger.hpp"
+#include "disassm.hpp"
 #include "dwarfinfo.hpp"
 #include "utils.hpp"
 
 #include <fcntl.h>
 #include <iostream>
+#include <string.h>
 #include <string>
 #include <sys/ptrace.h>
 #include <sys/user.h>
@@ -131,15 +133,33 @@ void Debugger::run_debugger() {
             ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
             printf("RIP: 0x%llx\n", regs.rip);
             std::string name;
-            DwInfo->get_function_name_by_rip(regs.rip, name);
+            Dwarf_Addr low_pc, high_pc;
+            DwInfo->get_function_by_rip(regs.rip, name, low_pc, high_pc);
             std::cout << "Function name: " << name << std::endl;
-
         } else if (inp == "s") {
             ptrace(PTRACE_SINGLESTEP, c_pid, 0, 0);
             wait(&wait_status);
         } else if (inp == "il") {
             std::cout << "Locals" << std::endl;
             info_locals();
+        } else if (inp == "dis") {
+            std::cout << "Disassamembly:" << std::endl;
+            auto dis = Disassm();
+
+            std::string name;
+            Dwarf_Addr low_pc, high_pc;
+            DwInfo->get_function_by_rip(regs.rip, name, low_pc, high_pc);
+
+            uint8_t *code = new uint8_t[high_pc - low_pc];
+
+            if (!read_process_memory(c_pid, low_pc, code, high_pc - low_pc)) {
+                perror("ptrace read");
+                ptrace(PTRACE_DETACH, c_pid, nullptr, nullptr);
+                delete[] code;
+            } else {
+                dis.print_disassembly(code, high_pc - low_pc, low_pc);
+            }
+
         } else {
             std::cout << "unknown command" << std::endl;
         }

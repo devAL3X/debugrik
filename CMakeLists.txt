@@ -12,6 +12,7 @@ add_executable(${PROJECT_NAME}
     src/utils.cpp
     src/cfg.cpp
     src/dwarfinfo.cpp
+    src/disassm.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} capstone::capstone)

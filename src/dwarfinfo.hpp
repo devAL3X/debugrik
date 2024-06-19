@@ -12,7 +12,8 @@ class DwarfInfo {
 
   public:
     void dw_init();
-    void get_function_name_by_rip(Dwarf_Addr rip, std::string &ret_string);
+    void get_function_by_rip(Dwarf_Addr rip, std::string &ret_string,
+                             Dwarf_Addr &low_pc, Dwarf_Addr &high_pc);
     void print_local_vars();
     DwarfInfo(const char *target_, pid_t child_pid_)
         : target{target_}, child_pid{child_pid_} {

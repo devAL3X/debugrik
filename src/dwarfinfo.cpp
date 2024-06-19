@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <iostream>
+#include <stdio.h>
 #include <string>
 #include <sys/ptrace.h>
 #include <sys/user.h>
@@ -9,7 +10,6 @@
 #include <unistd.h>
 #include <utility>
 #include <vector>
-#include <stdio.h>
 
 #include <dwarf.h>
 #include <libdwarf.h>
@@ -22,8 +22,8 @@ void DwarfInfo::dw_init() {
     }
 };
 
-void DwarfInfo::get_function_name_by_rip(Dwarf_Addr rip,
-                                         std::string &ret_string) {
+void DwarfInfo::get_function_by_rip(Dwarf_Addr rip, std::string &ret_string,
+                                    Dwarf_Addr &low_pc, Dwarf_Addr &high_pc) {
     dw_init();
     Dwarf_Unsigned cu_header_length, abbrev_offset, next_cu_header,
         dw_typeoffset, dw_next_cu_header_offset;
@@ -49,22 +49,17 @@ void DwarfInfo::get_function_name_by_rip(Dwarf_Addr rip,
                         continue;
                     }
                     if (tag == DW_TAG_subprogram) {
-                        Dwarf_Addr low_pc, high_pc;
                         dwarf_lowpc(child_die, &low_pc, &err);
                         Dwarf_Half dw_return_form;
                         enum Dwarf_Form_Class dw_return_class;
-                        dwarf_highpc_b(child_die, &high_pc, &dw_return_form, &dw_return_class, &err);
+                        dwarf_highpc_b(child_die, &high_pc, &dw_return_form,
+                                       &dw_return_class, &err);
                         high_pc += low_pc;
-                        printf("low=%p high=%p rip=%p\n", low_pc, high_pc, rip);
                         if (rip >= low_pc && rip < high_pc) {
                             char *name = 0;
                             if (dwarf_diename(child_die, &name, &err) ==
                                 DW_DLV_OK) {
-                                char *name_ptr = name;
-                                while (*name_ptr != 0) {
-                                    ret_string.push_back(*name_ptr);
-                                    name_ptr++;
-                                }
+                                ret_string = std::string(name);
                                 return;
                             }
                         }
