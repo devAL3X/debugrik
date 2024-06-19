@@ -4,12 +4,14 @@
 #include <cstdint>
 #include <capstone/capstone.h>
 
+#define MAX_INSTR_SIZE  16*2
+
 class Disassm {
   public:
     Disassm();
     void print_disassembly(uint8_t *start, uint64_t size, uint64_t address);
 
-    int onaddr_instr_sz(uint64_t addr);
+    uint64_t *next_instr_addr(uint8_t *code, uint64_t code_size, uint64_t address);
 
   private:
     csh handle;

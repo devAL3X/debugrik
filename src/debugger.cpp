@@ -67,7 +67,11 @@ void Debugger::run_debugger() {
         if (inp == "c") {
             continue_execution(&wait_status);
         } else if (inp == "b") {
-            set_breakpoint();
+            uint64_t addr;
+            std::cin >> std::hex >> addr;
+
+            set_breakpoint(addr);
+            std::cout <<  "Breakpoint set at: " << std::hex << (void *) addr << std::endl;
         } else if (inp == "exit") {
             std::cout << "bye" << std::endl;
             break;
@@ -99,7 +103,23 @@ void Debugger::next(int *status) {
     struct user_regs_struct regs;
     ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
 
-    int curr_instr_sz = disaska->onaddr_instr_sz(regs.rip);
+    uint8_t buf[MAX_INSTR_SIZE+1];
+    read_process_memory(c_pid, regs.rip, buf, MAX_INSTR_SIZE);
+
+    uint64_t *curr_instr_sz = disaska->next_instr_addr(buf, MAX_INSTR_SIZE, regs.rip);
+    // std::cout << curr_instr_sz << std::endl;
+
+    // set_breakpoint((uint64_t) curr_instr_sz);
+    
+
+    if(curr_instr_sz != nullptr) {
+        set_breakpoint((uint64_t) curr_instr_sz);
+        continue_execution(status);
+    } else {
+        step(status);
+    }
+
+
     // std::cout << disaska->handle << std::endl;
     // Get next after CUR_INSTR instruction address
 }
@@ -262,11 +282,8 @@ void Debugger::info_locals() {
     DwInfo->print_local_vars();
 }
 
-void Debugger::set_breakpoint() {
-    // uses string as argument
-    unsigned long addr;
-    std::cin >> std::hex >> addr;
-
+void Debugger::set_breakpoint(uint64_t addr) {
+    std::cout << "Setting the breakpoint to: " << std::hex << (void *) addr << std::endl; 
     long data = ptrace(PTRACE_PEEKTEXT, c_pid, (void *)addr, 0);
     long breakpoint = (data & LSB_TRAP_MASK) | TRAP_BYTE;
 
@@ -277,7 +294,6 @@ void Debugger::set_breakpoint() {
 
     // Change the real instruction
     ptrace(PTRACE_POKETEXT, c_pid, (void *)addr, (void *)breakpoint);
-    printf("Breakpoint set at 0x%lx\n", addr);
 }
 
 void Debugger::unknown() {
