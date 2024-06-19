@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <utility>
 #include <vector>
+#include <stdio.h>
 
 #include <dwarf.h>
 #include <libdwarf.h>
@@ -49,19 +50,12 @@ void DwarfInfo::get_function_name_by_rip(Dwarf_Addr rip,
                     }
                     if (tag == DW_TAG_subprogram) {
                         Dwarf_Addr low_pc, high_pc;
-                        Dwarf_Attribute attr_low, attr_high;
-                        Dwarf_Bool has_low_pc =
-                            dwarf_attr(child_die, DW_AT_low_pc, &attr_low,
-                                       &err) == DW_DLV_OK;
-                        Dwarf_Bool has_high_pc =
-                            dwarf_attr(child_die, DW_AT_high_pc, &attr_high,
-                                       &err) == DW_DLV_OK;
-
-                        if (has_low_pc)
-                            dwarf_formaddr(attr_low, &low_pc, &err);
-                        if (has_high_pc)
-                            dwarf_formaddr(attr_high, &high_pc, &err);
-
+                        dwarf_lowpc(child_die, &low_pc, &err);
+                        Dwarf_Half dw_return_form;
+                        enum Dwarf_Form_Class dw_return_class;
+                        dwarf_highpc_b(child_die, &high_pc, &dw_return_form, &dw_return_class, &err);
+                        high_pc += low_pc;
+                        printf("low=%p high=%p rip=%p\n", low_pc, high_pc, rip);
                         if (rip >= low_pc && rip < high_pc) {
                             char *name = 0;
                             if (dwarf_diename(child_die, &name, &err) ==
