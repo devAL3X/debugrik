@@ -86,12 +86,12 @@ class Debugger {
     void unknown();
     void info_regs();
     void list_functions();
-    void set_breakpoint();
+    void set_breakpoint(uint64_t addr);
     void continue_execution(int *status);
     void disassemble();
     void x_read();
     void x_set();
-
+    void next(int *status);
 };
 
 
