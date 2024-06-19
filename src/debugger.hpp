@@ -14,6 +14,7 @@
 #include <sys/wait.h>
 
 #define MAX_BREAKPOINTS 100
+#define MAX_XREAD_K     8
 
 #define MSG_SHOULD_BE_RUNNED "target not started"
 #define MSG_ALREADY_STARTED  "target is already in run"
@@ -59,6 +60,7 @@ class Debugger {
     void set_breakpoint();
     void continue_execution(int *status);
     void disassemble();
+    void x_read();
 
 };
 

@@ -83,10 +83,28 @@ void Debugger::run_debugger() {
             run_requirement(is_started, MSG_SHOULD_BE_RUNNED) disassemble();
         } else if (inp == "r") {
             run_requirement(!is_started, MSG_ALREADY_STARTED) continue_execution(&wait_status);
+        } else if (inp == "x") {
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) x_read();
         } else {
             unknown();
         }
     }
+}
+
+void Debugger::x_read() {
+    unsigned long addr, k;
+    
+    std::cin >> std::hex >> addr;
+    std::cin >> k;
+    
+    if(k > MAX_XREAD_K) {
+        std::cout << "to much bytes to read!" << std::endl;
+        return;
+    }
+    uint64_t memo[k]; 
+
+    read_process_memory(c_pid, addr, (uint8_t *) memo, sizeof(uint64_t) * k);
+    dump((void *)addr, memo, k);
 }
 
 void Debugger::continue_execution(int *wait_status) {
