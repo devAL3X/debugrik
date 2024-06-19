@@ -91,7 +91,7 @@ class Debugger {
     void disassemble();
     void x_read();
     void x_set();
-
+    void next(int *status);
 };
 
 

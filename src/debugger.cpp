@@ -87,10 +87,21 @@ void Debugger::run_debugger() {
             run_requirement(is_started, MSG_SHOULD_BE_RUNNED) x_read();
         } else if(inp == "set") {
             run_requirement(is_started, MSG_SHOULD_BE_RUNNED) x_set();
-        }else {
+        } else if(inp == "n") {
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) next(&wait_status);
+        } else {
             unknown();
         }
     }
+}
+
+void Debugger::next(int *status) {
+    struct user_regs_struct regs;
+    ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
+
+    int curr_instr_sz = disaska->onaddr_instr_sz(regs.rip);
+    // std::cout << disaska->handle << std::endl;
+    // Get next after CUR_INSTR instruction address
 }
 
 void Debugger::x_set() {
@@ -271,9 +282,4 @@ void Debugger::set_breakpoint() {
 
 void Debugger::unknown() {
     std::cout << "unknown command" << std::endl;
-}
-
-void todo() {
-    // DwInfo->get_function_name_by_rip(regs.rip, name);
-    // std::cout << "Function name: " << name << std::endl;
 }

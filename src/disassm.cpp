@@ -27,3 +27,9 @@ void Disassm::print_disassembly(uint8_t *code, uint64_t code_size, uint64_t addr
         std::cerr << "ERROR: Failed to disassemble the code!" << std::endl;
     }
 }
+
+int Disassm::onaddr_instr_sz(uint64_t addr) {
+    
+    
+    return 0;
+}
