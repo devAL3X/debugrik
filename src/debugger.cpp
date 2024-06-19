@@ -85,10 +85,35 @@ void Debugger::run_debugger() {
             run_requirement(!is_started, MSG_ALREADY_STARTED) continue_execution(&wait_status);
         } else if (inp == "x") {
             run_requirement(is_started, MSG_SHOULD_BE_RUNNED) x_read();
-        } else {
+        } else if(inp == "set") {
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) x_set();
+        }else {
             unknown();
         }
     }
+}
+
+void Debugger::x_set() {
+    uint64_t val;
+    std::string reg;
+    
+    std::cin >> reg;
+    std::cin >> std::hex >> val;
+
+    // Get actual register values
+    struct user_regs_struct regs;
+    ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
+    std::map<std::string, unsigned long long> rm = expand_regs(regs);
+
+    std::cout << reg << std::endl;
+    if(rm.count(reg) == 0) {
+        std::cout << "bad register name" << std::endl;
+        return;
+    }
+
+    rm[reg] = val;
+    flatten_regs(regs, rm);
+    ptrace(PTRACE_SETREGS, c_pid, 0, &regs);
 }
 
 void Debugger::x_read() {
@@ -159,14 +184,7 @@ void Debugger::info_regs() {
 
     ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
     
-    std::map<std::string, unsigned long long> p_map = {
-      {"rdi", regs.rdi}, {"rsi", regs.rsi}, {"rdx", regs.rdx},
-      {"rcx", regs.rcx}, {"rax", regs.rax}, {" r8", regs.r8},
-      {" r9", regs.r9},  {"r10", regs.r10}, {"r11", regs.r11},
-      {"r12", regs.r12}, {"r13", regs.r13}, {"r14", regs.r14},
-      {"r15", regs.r15}, {"rbx", regs.rbx}, {"rbp", regs.rbp},
-      {"rsp", regs.rsp}, {"rip", regs.rip}, {"efl", regs.eflags},
-    };
+    std::map<std::string, unsigned long long> p_map = expand_regs(regs);
 
     std::cout << "Registers:" << std::endl;
 
