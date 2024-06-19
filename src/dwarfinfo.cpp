@@ -13,8 +13,17 @@
 #include <dwarf.h>
 #include <libdwarf.h>
 
-void DwarfInfo::get_function_name_by_rip(Dwarf_Addr rip) {
-    // TODO: printf -> return
+void DwarfInfo::dw_init() {
+    if (dwarf_init_path(target, nullptr, 0, DW_GROUPNUMBER_ANY, nullptr,
+                        nullptr, &dbg, &err) != DW_DLV_OK) {
+        std::cerr << "dwarf_init_path() failed." << std::endl;
+        return;
+    }
+};
+
+void DwarfInfo::get_function_name_by_rip(Dwarf_Addr rip,
+                                         std::string &ret_string) {
+    dw_init();
     Dwarf_Unsigned cu_header_length, abbrev_offset, next_cu_header,
         dw_typeoffset, dw_next_cu_header_offset;
     Dwarf_Half dw_version_stamp, dw_address_size, dw_length_size,
@@ -57,7 +66,11 @@ void DwarfInfo::get_function_name_by_rip(Dwarf_Addr rip) {
                             char *name = 0;
                             if (dwarf_diename(child_die, &name, &err) ==
                                 DW_DLV_OK) {
-                                printf("Function name: %s\n", name);
+                                char *name_ptr = name;
+                                while (*name_ptr != 0) {
+                                    ret_string.push_back(*name_ptr);
+                                    name_ptr++;
+                                }
                                 return;
                             }
                         }
@@ -113,7 +126,7 @@ int DwarfInfo::dwarf_get_entry_offset(Dwarf_Loc_Head_c dw_loclist_head,
     return DW_DLV_ERROR;
 }
 
-void DwarfInfo::print_local_vars_and_values(Dwarf_Debug dbg, Dwarf_Die die) {
+void DwarfInfo::traverse_dwarf_tree(Dwarf_Debug dbg, Dwarf_Die die) {
 
     Dwarf_Half tag;
     if (dwarf_tag(die, &tag, &err) != DW_DLV_OK) {
@@ -166,17 +179,18 @@ void DwarfInfo::print_local_vars_and_values(Dwarf_Debug dbg, Dwarf_Die die) {
 
     Dwarf_Die child;
     if (dwarf_child(die, &child, &err) == DW_DLV_OK) {
-        print_local_vars_and_values(dbg, child);
+        traverse_dwarf_tree(dbg, child);
     }
 
     Dwarf_Die sibling;
     if (dwarf_siblingof_b(dbg, die, true, &sibling, &err) == DW_DLV_OK) {
-        print_local_vars_and_values(dbg, sibling);
+        traverse_dwarf_tree(dbg, sibling);
     }
 }
 
 // Function to read DWARF info and extract local variables
-void DwarfInfo::read_dwarf_info() {
+void DwarfInfo::print_local_vars() {
+    dw_init();
     Dwarf_Unsigned cu_header_length, abbrev_offset, next_cu_header,
         dw_typeoffset, dw_next_cu_header_offset;
     Dwarf_Half dw_version_stamp, dw_address_size, dw_length_size,
@@ -194,7 +208,7 @@ void DwarfInfo::read_dwarf_info() {
         Dwarf_Die no_die, cu_die;
 
         if (dwarf_siblingof_b(dbg, no_die, true, &cu_die, &err) == DW_DLV_OK) {
-            print_local_vars_and_values(dbg, cu_die);
+            traverse_dwarf_tree(dbg, cu_die);
         }
     }
 }

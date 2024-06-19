@@ -30,7 +30,7 @@ void Debugger::info_locals() {
 
     printf("Breakpoint hit at address: %llx\n", regs.rip);
 
-    DwInfo->read_dwarf_info();
+    DwInfo->print_local_vars();
 }
 
 Debugger::Debugger(Configuration cfg) { target = cfg.get_path(); }
@@ -130,7 +130,9 @@ void Debugger::run_debugger() {
         } else if (inp == "ir") {
             ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
             printf("RIP: 0x%llx\n", regs.rip);
-            DwInfo->get_function_name_by_rip(regs.rip);
+            std::string name;
+            DwInfo->get_function_name_by_rip(regs.rip, name);
+            std::cout << "Function name: " << name << std::endl;
 
         } else if (inp == "s") {
             ptrace(PTRACE_SINGLESTEP, c_pid, 0, 0);
