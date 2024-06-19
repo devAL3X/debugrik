@@ -14,6 +14,10 @@ void o_log(const char *msg, const char *arg);
 _NORETURN panic(std::string msg);
 
 _NORETURN panic(char *buf);
+
 bool read_process_memory(pid_t pid, uint64_t address, uint8_t *buffer,
                          size_t size);
+
+void dump(void *st_addr, uint64_t *buf, int k);
+
 #endif

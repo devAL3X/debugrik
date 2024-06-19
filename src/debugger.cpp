@@ -1,7 +1,5 @@
-#include "debugger.hpp"
 #include "disassm.hpp"
 #include "dwarfinfo.hpp"
-
 #include "arch.hpp"
 #include "debugger.hpp"
 #include "utils.hpp"
@@ -60,7 +58,7 @@ void Debugger::run_debugger() {
     int wait_status;
     wait(&wait_status);
 
-    while (WIFSTOPPED(wait_status)) {
+    outer: while (WIFSTOPPED(wait_status)) {
         std::string inp;
 
         std::cout << "dbg> ";
@@ -74,23 +72,45 @@ void Debugger::run_debugger() {
             std::cout << "bye" << std::endl;
             break;
         } else if (inp == "ir") {
-            info_regs();
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) info_regs();
         } else if (inp == "s") {
-            step(&wait_status);
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) step(&wait_status);
         } else if (inp == "il") {
-            info_locals();
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) info_locals();
         } else if (inp == "lf") {
             list_functions();
         } else if (inp == "dis") {
-            disassemble();
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) disassemble();
+        } else if (inp == "r") {
+            run_requirement(!is_started, MSG_ALREADY_STARTED) continue_execution(&wait_status);
+        } else if (inp == "x") {
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) x_read();
         } else {
             unknown();
         }
     }
 }
 
+void Debugger::x_read() {
+    unsigned long addr, k;
+    
+    std::cin >> std::hex >> addr;
+    std::cin >> k;
+    
+    if(k > MAX_XREAD_K) {
+        std::cout << "to much bytes to read!" << std::endl;
+        return;
+    }
+    uint64_t memo[k]; 
+
+    read_process_memory(c_pid, addr, (uint8_t *) memo, sizeof(uint64_t) * k);
+    dump((void *)addr, memo, k);
+}
+
 void Debugger::continue_execution(int *wait_status) {
     ptrace(PTRACE_CONT, c_pid, 0, 0);
+    is_started = true;
+    
     wait(wait_status);
 
     // Then we got to breakpoint
