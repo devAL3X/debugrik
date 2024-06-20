@@ -1,8 +1,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include <string>
 #include <cstdint>
+#include <string>
 
 #define HEADER_PANIC "panic:"
 #define HEADER_DEBUGGER "dbg:"
@@ -19,10 +19,11 @@ void o_log(const char *msg, const char *arg);
 
 /**
  * @brief Causes the program to terminate abnormally with a panic message.
- * 
- * This function is used to indicate a critical error condition that cannot be recovered from.
- * It prints the specified error message and terminates the program.
- * 
+ *
+ * This function is used to indicate a critical error condition that cannot be
+ * recovered from. It prints the specified error message and terminates the
+ * program.
+ *
  * @param msg The panic message to be displayed.
  * @return This function does not return a value.
  */
@@ -31,17 +32,20 @@ _NORETURN panic(std::string msg);
 /**
  * @brief Causes the program to terminate abnormally.
  *
- * This function is used to indicate a critical error or an unrecoverable condition
- * that requires the program to stop execution immediately. It prints the specified
- * error message to the standard error stream and terminates the program.
+ * This function is used to indicate a critical error or an unrecoverable
+ * condition that requires the program to stop execution immediately. It prints
+ * the specified error message to the standard error stream and terminates the
+ * program.
  *
- * @param buf A pointer to a null-terminated string containing the error message.
+ * @param buf A pointer to a null-terminated string containing the error
+ * message.
  * @return This function does not return a value.
  */
 _NORETURN panic(char *buf);
 
 /**
- * Reads the memory of a process with the specified process ID (pid) at the given address.
+ * Reads the memory of a process with the specified process ID (pid) at the
+ * given address.
  *
  * @param pid The process ID of the target process.
  * @param address The memory address to read from.
