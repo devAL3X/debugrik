@@ -98,7 +98,7 @@ outer:
         } else if (inp == "n") {
             run_requirement(is_started, MSG_SHOULD_BE_RUNNED)
                 next(&wait_status);
-        } else if (inp == "p"){
+        } else if (inp == "p") {
             run_requirement(is_started, MSG_SHOULD_BE_RUNNED) print();
         } else {
             unknown();
@@ -290,7 +290,7 @@ void Debugger::info_locals() {
     DwInfo->get_function_by_rip(regs.rip, func_name, low_pc, high_pc);
     auto locals = DwInfo->get_local_vars((char *)func_name.c_str());
     for (auto l: locals) {
-        std::cout << l.first << '=' << (void*)l.second << std::endl;
+        std::cout << l.first << '=' << (void *)l.second << std::endl;
     }
 }
 
@@ -325,12 +325,12 @@ void Debugger::print() {
     auto locals = DwInfo->get_local_vars((char *)func_name.c_str());
 
     if (inp[0] == '*') {
-        long val = ptrace(PTRACE_PEEKDATA, c_pid, locals[std::string(inp.c_str()+1)], nullptr);
-        std::cout << (inp.c_str()+1) << '=' << (void *)val << std::endl;
+        long val = ptrace(PTRACE_PEEKDATA, c_pid,
+                          locals[std::string(inp.c_str() + 1)], nullptr);
+        std::cout << (inp.c_str() + 1) << '=' << (void *)val << std::endl;
     } else {
         std::cout << inp << '=' << std::hex << (void *)locals[inp] << std::endl;
     }
-
 }
 
 void Debugger::unknown() { std::cout << "unknown command" << std::endl; }

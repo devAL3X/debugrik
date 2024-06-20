@@ -1,13 +1,14 @@
 #ifndef DISASSM_H
 #define DISASSM_H
 
-#include <cstdint>
 #include <capstone/capstone.h>
+#include <cstdint>
 
-#define MAX_INSTR_SIZE  16*2
+#define MAX_INSTR_SIZE 16 * 2
 
 /**
- * @brief The Disassm class provides functionality for disassembling binary code.
+ * @brief The Disassm class provides functionality for disassembling binary
+ * code.
  */
 class Disassm {
   public:
@@ -23,13 +24,14 @@ class Disassm {
 
     /**
      * @brief Finds the address of the next instruction in the given code.
-     * 
+     *
      * @param code The binary code to search for the next instruction.
      * @param code_size The size of the binary code.
      * @param address The current address in the code.
      * @return The address of the next instruction.
      */
-    uint64_t *next_instr_addr(uint8_t *code, uint64_t code_size, uint64_t address);
+    uint64_t *next_instr_addr(uint8_t *code, uint64_t code_size,
+                              uint64_t address);
 
   private:
     csh handle;
