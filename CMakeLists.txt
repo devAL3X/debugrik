@@ -44,7 +44,6 @@ add_test(NAME UtilsTestsSuite COMMAND debugger_utils_tests)
 add_executable(debugger_cfg_tests
     src/cfg.cpp
     src/cfg_tests.cpp
-    src/utils.cpp
 )
 
 target_link_libraries(debugger_cfg_tests
