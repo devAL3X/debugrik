@@ -3,82 +3,89 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <cstring>
+#include <iostream>
 #include <iomanip>
-#include <sstream>
+#include <vector>
+#include <cstdarg>
+#include "utils.hpp"
 
-extern "C" {
-    // Mocking the ptrace system call
-    long ptrace(enum __ptrace_request, ...);
-}
+using testing::_;
 
-using ::testing::Return;
-using ::testing::_;
 
-// Mock class for ptrace
 class MockPtrace {
 public:
     MOCK_METHOD(long, ptrace, (enum __ptrace_request request, pid_t pid, void *addr, void *data));
 };
+MockPtrace *mock_ptrace = nullptr;
 
-MockPtrace* mock_ptrace = nullptr;
-
-// Override the ptrace call with the mock
-long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data) {
-    puts("Hey, great work");
-    return mock_ptrace->ptrace(request, pid, addr, data);
-}
-
-// The function under test
-bool read_process_memory(pid_t pid, uint64_t address, uint8_t *buffer, size_t size) {
-    size_t bytesRead = 0;
-    while (bytesRead < size) {
-        u_int64_t word = ptrace(PTRACE_PEEKDATA, pid, reinterpret_cast<void*>(address + bytesRead), nullptr);
-        if (word == -1) {
-            return false;
-        }
-
-        memcpy(buffer + bytesRead, &word, sizeof(word));
-        bytesRead += sizeof(word);
+/*
+    Хукаем, чтобы вместо настоящей функции вызывалась наша обертка
+*/
+extern "C" {
+    long ptrace(enum __ptrace_request req, ...) {
+        va_list args;
+        va_start(args, req);
+        
+        pid_t pid = va_arg(args, pid_t);
+        void *addr = va_arg(args, void*);
+        void *data = va_arg(args, void*);
+        
+        va_end(args);
+        return mock_ptrace->ptrace(req, pid, addr, data);
     }
-
-    return true;
 }
 
-// The function under test
-void dump(void *st_addr, uint64_t *buf, int k) {
-    std::cout << std::hex << std::setfill('0');
-    for(int i = 0; i < k; i++) {
-        if(i % 2 == 0)
-            std::cout << std::endl << reinterpret_cast<uint64_t>(st_addr) + i * sizeof(uint64_t) << ": ";
-        std::cout << std::setw(16) << buf[i] << " ";
-    }
-    std::cout << std::endl;
-}
-
-class MemoryUtilsTest : public ::testing::Test {
+class AllUtilsTest : public ::testing::Test {
 protected:
-    void SetUp() override {
+    void SetUp() {
         mock_ptrace = new MockPtrace();
+        errno = 0;
     }
 
-    void TearDown() override {
+    void TearDown() {
         delete mock_ptrace;
-        mock_ptrace = nullptr;
     }
 };
 
-TEST_F(MemoryUtilsTest, ReadProcessMemory_Success) {
+/*
+    Здесь начинается логика тестов
+*/
+
+#define TEST_SAMPLE_VALUE  0xcafebabecafebabe
+#define TEST_SAMPLE_VADDR  0x1234
+#define TEST_PID           0xdead
+
+TEST_F(AllUtilsTest, ReadProcessMemory_8bytesSuccess) {
     uint8_t buffer[8];
-    memset(buffer, 0, sizeof(buffer));
-    pid_t test_pid = 123;
-    uint64_t test_address = 0x1234;
 
-    EXPECT_CALL(*mock_ptrace, ptrace(PTRACE_PEEKDATA, test_pid, reinterpret_cast<void*>(test_address), nullptr))
-        .WillOnce(Return(0xdeadbeefdeadbeef));
+    EXPECT_CALL(*mock_ptrace, ptrace(PTRACE_PEEKDATA, TEST_PID, _, _))
+        .Times(1)
+        .WillRepeatedly(testing::Return(TEST_SAMPLE_VALUE));
 
-    //EXPECT_CALL(*mock_ptrace, ptrace(PTRACE_PEEKDATA, test_pid, reinterpret_cast<void*>(test_address + 8), nullptr))
-     //   .WillOnce(Return(0xcafebabe));
+    ASSERT_TRUE(read_process_memory(TEST_PID, TEST_SAMPLE_VADDR, buffer, sizeof(buffer)));
+    EXPECT_EQ(*((u_int64_t *) &buffer[0]), TEST_SAMPLE_VALUE);
+}
 
-    ASSERT_TRUE(read_process_memory(test_pid, test_address, buffer, sizeof(buffer)));
+TEST_F(AllUtilsTest, ReadProcessMemory_24bytesSuccess) {
+    uint8_t buffer[24];
 
+    EXPECT_CALL(*mock_ptrace, ptrace(PTRACE_PEEKDATA, TEST_PID, _, _))
+        .Times(3) // 24 bytes splits into 4 calls by 8 bytes
+        .WillRepeatedly(testing::Return(TEST_SAMPLE_VALUE));
+
+    ASSERT_TRUE(read_process_memory(TEST_PID, TEST_SAMPLE_VADDR, buffer, sizeof(buffer)));
+
+    for(int i = 0; i < 3; i++)
+        EXPECT_EQ(((u_int64_t *) buffer)[i], TEST_SAMPLE_VALUE);
+}
+
+TEST_F(AllUtilsTest, ReadProcessMemory_ptrace_failure) {
+    uint8_t buffer[8];
+
+    EXPECT_CALL(*mock_ptrace, ptrace(PTRACE_PEEKDATA, TEST_PID, _, _))
+        .Times(1)
+        .WillRepeatedly(testing::Return(-1)); // simulate error from ptrace
+
+    ASSERT_FALSE(read_process_memory(TEST_PID, TEST_SAMPLE_VADDR, buffer, sizeof(buffer)));
 }
