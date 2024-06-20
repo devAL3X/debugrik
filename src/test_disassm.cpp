@@ -45,3 +45,15 @@ TEST(DisassmTest, NextInstructionAddressIsNullptr) {
 
     ASSERT_EQ(next_addr, nullptr);
 }
+
+TEST(DisassmTest, CurrInstructionIsCall) {
+    Disassm disassm;
+
+    uint8_t code[] = {0xe8, 0xd8, 0xff, 0xff, 0xff, 0xb8, 0x0, 0x0, 0x0, 0x0, 0xcc};
+    uint64_t code_size = sizeof(code);
+    uint64_t address = 0x1000;
+
+    uint64_t *next_addr = disassm.next_instr_addr(code, code_size, address);
+
+    ASSERT_NE(next_addr, nullptr);
+}

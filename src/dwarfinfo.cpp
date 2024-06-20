@@ -1,4 +1,5 @@
 #include "dwarfinfo.hpp"
+#include "utils.hpp"
 
 #include <fcntl.h>
 #include <iostream>
@@ -37,12 +38,20 @@ void DwarfInfo::get_function_by_rip(Dwarf_Addr rip, std::string &ret_string,
     Dwarf_Sig8 dw_type_signature;
     Dwarf_Die no_die = 0, cu_die, child_die;
 
-    while (dwarf_next_cu_header_d(dbg, true, &dw_cu_header_length,
+
+    int status = dwarf_next_cu_header_d(dbg, true, &dw_cu_header_length,
                                   &dw_version_stamp, &dw_abbrev_offset,
                                   &dw_address_size, &dw_length_size,
                                   &dw_extension_size, &dw_type_signature,
                                   &dw_typeoffset, &dw_next_cu_header_offset,
-                                  &dw_header_cu_type, &err) == DW_DLV_OK) {
+                                  &dw_header_cu_type, &err);
+    
+    if(status != DW_DLV_OK) {
+        // We should debug only binaries with debug symbols by task
+        panic("No debug symbols present. Bye");
+    }
+
+    while (status == DW_DLV_OK) {
 
         if (dwarf_siblingof_b(dbg, no_die, true, &cu_die, &err) == DW_DLV_OK) {
             if (dwarf_child(cu_die, &child_die, &err) == DW_DLV_OK) {
@@ -71,6 +80,13 @@ void DwarfInfo::get_function_by_rip(Dwarf_Addr rip, std::string &ret_string,
                                            &err) == DW_DLV_OK);
             }
         }
+
+        status = dwarf_next_cu_header_d(dbg, true, &dw_cu_header_length,
+                                  &dw_version_stamp, &dw_abbrev_offset,
+                                  &dw_address_size, &dw_length_size,
+                                  &dw_extension_size, &dw_type_signature,
+                                  &dw_typeoffset, &dw_next_cu_header_offset,
+                                  &dw_header_cu_type, &err);
     }
 }
 
