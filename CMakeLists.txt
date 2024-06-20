@@ -51,3 +51,15 @@ target_link_libraries(debugger_cfg_tests
     gtest_main gmock_main)
 
 add_test(NAME CfgTestsSuite COMMAND debugger_cfg_tests)
+
+# Disassm
+add_executable(debugger_disassm_tests
+    src/disassm.cpp
+    src/test_disassm.cpp
+)
+
+target_link_libraries(debugger_disassm_tests
+    gtest_main gmock_main capstone::capstone)
+
+add_test(NAME DisassmTestsSuite COMMAND debugger_disassm_tests)
+
