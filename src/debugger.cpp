@@ -1,7 +1,7 @@
+#include "debugger.hpp"
+#include "arch.hpp"
 #include "disassm.hpp"
 #include "dwarfinfo.hpp"
-#include "arch.hpp"
-#include "debugger.hpp"
 #include "utils.hpp"
 
 #include <fcntl.h>
@@ -58,7 +58,8 @@ void Debugger::run_debugger() {
     int wait_status;
     wait(&wait_status);
 
-    outer: while (WIFSTOPPED(wait_status)) {
+outer:
+    while (WIFSTOPPED(wait_status)) {
         std::string inp;
 
         std::cout << "dbg> ";
@@ -71,14 +72,16 @@ void Debugger::run_debugger() {
             std::cin >> std::hex >> addr;
 
             set_breakpoint(addr);
-            std::cout <<  "Breakpoint set at: " << std::hex << (void *) addr << std::endl;
+            std::cout << "Breakpoint set at: " << std::hex << (void *)addr
+                      << std::endl;
         } else if (inp == "exit") {
             std::cout << "bye" << std::endl;
             break;
         } else if (inp == "ir") {
             run_requirement(is_started, MSG_SHOULD_BE_RUNNED) info_regs();
         } else if (inp == "s") {
-            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) step(&wait_status);
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED)
+                step(&wait_status);
         } else if (inp == "il") {
             run_requirement(is_started, MSG_SHOULD_BE_RUNNED) info_locals();
         } else if (inp == "lf") {
@@ -86,13 +89,17 @@ void Debugger::run_debugger() {
         } else if (inp == "dis") {
             run_requirement(is_started, MSG_SHOULD_BE_RUNNED) disassemble();
         } else if (inp == "r") {
-            run_requirement(!is_started, MSG_ALREADY_STARTED) continue_execution(&wait_status);
+            run_requirement(!is_started, MSG_ALREADY_STARTED)
+                continue_execution(&wait_status);
         } else if (inp == "x") {
             run_requirement(is_started, MSG_SHOULD_BE_RUNNED) x_read();
-        } else if(inp == "set") {
+        } else if (inp == "set") {
             run_requirement(is_started, MSG_SHOULD_BE_RUNNED) x_set();
-        } else if(inp == "n") {
-            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) next(&wait_status);
+        } else if (inp == "n") {
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED)
+                next(&wait_status);
+        } else if (inp == "p"){
+            run_requirement(is_started, MSG_SHOULD_BE_RUNNED) print();
         } else {
             unknown();
         }
@@ -103,22 +110,21 @@ void Debugger::next(int *status) {
     struct user_regs_struct regs;
     ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
 
-    uint8_t buf[MAX_INSTR_SIZE+1];
+    uint8_t buf[MAX_INSTR_SIZE + 1];
     read_process_memory(c_pid, regs.rip, buf, MAX_INSTR_SIZE);
 
-    uint64_t *curr_instr_sz = disaska->next_instr_addr(buf, MAX_INSTR_SIZE, regs.rip);
+    uint64_t *curr_instr_sz =
+        disaska->next_instr_addr(buf, MAX_INSTR_SIZE, regs.rip);
     // std::cout << curr_instr_sz << std::endl;
 
     // set_breakpoint((uint64_t) curr_instr_sz);
-    
 
-    if(curr_instr_sz != nullptr) {
-        set_breakpoint((uint64_t) curr_instr_sz);
+    if (curr_instr_sz != nullptr) {
+        set_breakpoint((uint64_t)curr_instr_sz);
         continue_execution(status);
     } else {
         step(status);
     }
-
 
     // std::cout << disaska->handle << std::endl;
     // Get next after CUR_INSTR instruction address
@@ -127,7 +133,7 @@ void Debugger::next(int *status) {
 void Debugger::x_set() {
     uint64_t val;
     std::string reg;
-    
+
     std::cin >> reg;
     std::cin >> std::hex >> val;
 
@@ -137,7 +143,7 @@ void Debugger::x_set() {
     std::map<std::string, unsigned long long> rm = expand_regs(regs);
 
     std::cout << reg << std::endl;
-    if(rm.count(reg) == 0) {
+    if (rm.count(reg) == 0) {
         std::cout << "bad register name" << std::endl;
         return;
     }
@@ -149,24 +155,24 @@ void Debugger::x_set() {
 
 void Debugger::x_read() {
     unsigned long addr, k;
-    
+
     std::cin >> std::hex >> addr;
     std::cin >> k;
-    
-    if(k > MAX_XREAD_K) {
+
+    if (k > MAX_XREAD_K) {
         std::cout << "to much bytes to read!" << std::endl;
         return;
     }
-    uint64_t memo[k]; 
+    uint64_t memo[k];
 
-    read_process_memory(c_pid, addr, (uint8_t *) memo, sizeof(uint64_t) * k);
+    read_process_memory(c_pid, addr, (uint8_t *)memo, sizeof(uint64_t) * k);
     dump((void *)addr, memo, k);
 }
 
 void Debugger::continue_execution(int *wait_status) {
     ptrace(PTRACE_CONT, c_pid, 0, 0);
     is_started = true;
-    
+
     wait(wait_status);
 
     // Then we got to breakpoint
@@ -211,7 +217,6 @@ void Debugger::info_regs() {
     struct user_regs_struct regs;
 
     ptrace(PTRACE_GETREGS, c_pid, 0, &regs);
-
 
     std::map<std::string, unsigned long long> p_map = expand_regs(regs);
 
@@ -283,11 +288,15 @@ void Debugger::info_locals() {
     Dwarf_Addr low_pc, high_pc;
     std::string func_name;
     DwInfo->get_function_by_rip(regs.rip, func_name, low_pc, high_pc);
-    DwInfo->print_local_vars((char *)func_name.c_str());
+    auto locals = DwInfo->get_local_vars((char *)func_name.c_str());
+    for (auto l: locals) {
+        std::cout << l.first << '=' << (void*)l.second << std::endl;
+    }
 }
 
 void Debugger::set_breakpoint(uint64_t addr) {
-    std::cout << "Setting the breakpoint to: " << std::hex << (void *) addr << std::endl; 
+    std::cout << "Setting the breakpoint to: " << std::hex << (void *)addr
+              << std::endl;
     long data = ptrace(PTRACE_PEEKTEXT, c_pid, (void *)addr, 0);
     long breakpoint = (data & LSB_TRAP_MASK) | TRAP_BYTE;
 
@@ -300,7 +309,28 @@ void Debugger::set_breakpoint(uint64_t addr) {
     ptrace(PTRACE_POKETEXT, c_pid, (void *)addr, (void *)breakpoint);
 }
 
+void Debugger::print() {
+    std::string inp;
+    std::cin >> inp;
 
-void Debugger::unknown() {
-    std::cout << "unknown command" << std::endl;
+    struct user_regs_struct regs;
+    if (ptrace(PTRACE_GETREGS, c_pid, 0, &regs) < 0) {
+        perror("ptrace(GETREGS)");
+        exit(EXIT_FAILURE);
+    }
+
+    Dwarf_Addr low_pc, high_pc;
+    std::string func_name;
+    DwInfo->get_function_by_rip(regs.rip, func_name, low_pc, high_pc);
+    auto locals = DwInfo->get_local_vars((char *)func_name.c_str());
+
+    if (inp[0] == '*') {
+        long val = ptrace(PTRACE_PEEKDATA, c_pid, locals[std::string(inp.c_str()+1)], nullptr);
+        std::cout << (inp.c_str()+1) << '=' << (void *)val << std::endl;
+    } else {
+        std::cout << inp << '=' << std::hex << (void *)locals[inp] << std::endl;
+    }
+
 }
+
+void Debugger::unknown() { std::cout << "unknown command" << std::endl; }

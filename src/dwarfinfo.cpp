@@ -1,4 +1,5 @@
 #include "dwarfinfo.hpp"
+#include "utils.hpp"
 
 #include <fcntl.h>
 #include <iostream>
@@ -13,6 +14,8 @@
 
 #include <dwarf.h>
 #include <libdwarf.h>
+#include <map>
+#include <string>
 #include <string.h>
 
 void DwarfInfo::dw_init() {
@@ -35,12 +38,20 @@ void DwarfInfo::get_function_by_rip(Dwarf_Addr rip, std::string &ret_string,
     Dwarf_Sig8 dw_type_signature;
     Dwarf_Die no_die = 0, cu_die, child_die;
 
-    while (dwarf_next_cu_header_d(dbg, true, &dw_cu_header_length,
+
+    int status = dwarf_next_cu_header_d(dbg, true, &dw_cu_header_length,
                                   &dw_version_stamp, &dw_abbrev_offset,
                                   &dw_address_size, &dw_length_size,
                                   &dw_extension_size, &dw_type_signature,
                                   &dw_typeoffset, &dw_next_cu_header_offset,
-                                  &dw_header_cu_type, &err) == DW_DLV_OK) {
+                                  &dw_header_cu_type, &err);
+    
+    if(status != DW_DLV_OK) {
+        // We should debug only binaries with debug symbols by task
+        panic("No debug symbols present. Bye");
+    }
+
+    while (status == DW_DLV_OK) {
 
         if (dwarf_siblingof_b(dbg, no_die, true, &cu_die, &err) == DW_DLV_OK) {
             if (dwarf_child(cu_die, &child_die, &err) == DW_DLV_OK) {
@@ -69,6 +80,13 @@ void DwarfInfo::get_function_by_rip(Dwarf_Addr rip, std::string &ret_string,
                                            &err) == DW_DLV_OK);
             }
         }
+
+        status = dwarf_next_cu_header_d(dbg, true, &dw_cu_header_length,
+                                  &dw_version_stamp, &dw_abbrev_offset,
+                                  &dw_address_size, &dw_length_size,
+                                  &dw_extension_size, &dw_type_signature,
+                                  &dw_typeoffset, &dw_next_cu_header_offset,
+                                  &dw_header_cu_type, &err);
     }
 }
 
@@ -117,7 +135,8 @@ int DwarfInfo::dwarf_get_entry_offset(Dwarf_Loc_Head_c dw_loclist_head,
 }
 
 void DwarfInfo::traverse_dwarf_tree(Dwarf_Debug dbg, Dwarf_Die die,
-                                    char *func_name) {
+                                    char *func_name,
+                                    std::map<std::string, uint64_t> &res) {
 
     Dwarf_Half tag;
     if (dwarf_tag(die, &tag, &err) != DW_DLV_OK) {
@@ -161,7 +180,7 @@ void DwarfInfo::traverse_dwarf_tree(Dwarf_Debug dbg, Dwarf_Die die,
             long value =
                 ptrace(PTRACE_PEEKDATA, child_pid, (void *)addr, nullptr);
 
-            printf("Variable: %s, Value: %llx\n", die_name, value);
+            res[std::string(die_name)] = value;
         }
     }
 
@@ -172,18 +191,19 @@ void DwarfInfo::traverse_dwarf_tree(Dwarf_Debug dbg, Dwarf_Die die,
         dwarf_tag(die, &tag, &err);
         dwarf_diename(die, &name, &err);
         if (!(tag == DW_TAG_subprogram && strcmp(name, func_name) != 0)) {
-            traverse_dwarf_tree(dbg, child, func_name);
+            traverse_dwarf_tree(dbg, child, func_name, res);
         }
     }
 
     Dwarf_Die sibling;
     if (dwarf_siblingof_b(dbg, die, true, &sibling, &err) == DW_DLV_OK) {
-        traverse_dwarf_tree(dbg, sibling, func_name);
+        traverse_dwarf_tree(dbg, sibling, func_name, res);
     }
 }
 
 // Function to read DWARF info and extract local variables
-void DwarfInfo::print_local_vars(char *func_name) {
+std::map<std::string, uint64_t>
+DwarfInfo::get_local_vars(char *func_name) {
     dw_init();
     Dwarf_Unsigned cu_header_length, abbrev_offset, next_cu_header,
         dw_typeoffset, dw_next_cu_header_offset;
@@ -193,6 +213,7 @@ void DwarfInfo::print_local_vars(char *func_name) {
     Dwarf_Off dw_abbrev_offset;
     Dwarf_Sig8 dw_type_signature;
 
+    std::map<std::string, uint64_t> res;
     while (dwarf_next_cu_header_d(dbg, true, &dw_cu_header_length,
                                   &dw_version_stamp, &dw_abbrev_offset,
                                   &dw_address_size, &dw_length_size,
@@ -200,9 +221,9 @@ void DwarfInfo::print_local_vars(char *func_name) {
                                   &dw_typeoffset, &dw_next_cu_header_offset,
                                   &dw_header_cu_type, &err) == DW_DLV_OK) {
         Dwarf_Die no_die, cu_die;
-
         if (dwarf_siblingof_b(dbg, no_die, true, &cu_die, &err) == DW_DLV_OK) {
-            traverse_dwarf_tree(dbg, cu_die, func_name);
+            traverse_dwarf_tree(dbg, cu_die, func_name, res);
         }
     }
+    return res;
 }
