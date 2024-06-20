@@ -53,44 +53,165 @@
         continue;                                                              \
     }
 
+/**
+ * @brief Represents a breakpoint in the debugger.
+ * 
+ * A breakpoint is a specific location in the code where the debugger will pause the execution
+ * of the program for inspection or debugging purposes.
+ */
 struct breakpoint {
+    /**
+     * @brief The memory address.
+     */
     unsigned long addr;
+    /**
+     * @brief The original data value.
+     */
     long original_data;
 };
 
+/**
+ * @brief Array of breakpoints.
+ *
+ * This static array stores the breakpoints set by the debugger. It has a maximum size of MAX_BREAKPOINTS.
+ */
 static struct breakpoint breakpoints[MAX_BREAKPOINTS];
+/**
+ * @brief The number of breakpoints set in the debugger.
+ */
 static int breakpoint_count;
 
+/**
+ * @class Debugger
+ * @brief Represents a debugger for a target process.
+ * 
+ * The Debugger class provides functionality to debug a target process, including starting and killing the process,
+ * retrieving information about local variables, stepping through the code, setting breakpoints, and more.
+ */
 class Debugger {
-    pid_t c_pid;
-    bool is_started;
-    const char *target;
-    DwarfInfo *DwInfo;
-    Disassm *disaska;
+        /**
+         * @brief Represents a process ID.
+         * 
+         * The `pid_t` type is used to represent a process ID. It is a signed integer type
+         * that is capable of representing any valid process ID on the system.
+         */
+        pid_t c_pid;
+        /**
+         * @brief Indicates whether the debugger is started or not.
+         */
+        bool is_started;
+        /**
+         * @brief The target being debugged.
+         */
+        const char *target;
+        /**
+         * @brief Pointer to the DwarfInfo object.
+         */
+        DwarfInfo *DwInfo;
+        /**
+         * @brief Pointer to a Disassm object.
+         */
+        Disassm *disaska;
 
-  private:
-    void spawn_target();
-    void run_debugger();
+    private:
+        /**
+         * @brief Spawns a target for debugging.
+         */
+        void spawn_target();
+        /**
+         * @brief Runs the debugger.
+         */
+        void run_debugger();
 
-  public:
-    Debugger(Configuration cfg);
+    public:
+        /**
+         * @brief Constructs a Debugger object with the given configuration.
+         * 
+         * @param cfg The configuration for the debugger.
+         */
+        Debugger(Configuration cfg);
 
-    void start(pid_t *gp);
-    void kill_target();
-    void info_locals();
+        /**
+         * @brief Starts the target process with the given process ID.
+         * 
+         * @param gp A pointer to the process ID of the target process.
+         */
+        void start(pid_t *gp);
 
-    // Debugger commands
-    void step(int *status);
-    void unknown();
-    void info_regs();
-    void list_functions();
-    void set_breakpoint(uint64_t addr);
-    void continue_execution(int *status);
-    void disassemble();
-    void x_read();
-    void x_set();
-    void next(int *status);
-    void print();
+        /**
+         * @brief Kills the target process.
+         */
+        void kill_target();
+
+        /**
+         * @brief Retrieves information about local variables.
+         */
+        void info_locals();
+
+        // Debugger commands
+
+        /**
+         * @brief Executes the next instruction and stops.
+         * 
+         * @param status A pointer to the status of the execution.
+         */
+        void step(int *status);
+
+        /**
+         * @brief Executes an unknown command.
+         */
+        void unknown();
+
+        /**
+         * @brief Retrieves information about the registers.
+         */
+        void info_regs();
+
+        /**
+         * @brief Lists all the functions in the target process.
+         */
+        void list_functions();
+
+        /**
+         * @brief Sets a breakpoint at the specified address.
+         * 
+         * @param addr The address where the breakpoint should be set.
+         */
+        void set_breakpoint(uint64_t addr);
+
+        /**
+         * @brief Continues the execution of the target process.
+         * 
+         * @param status A pointer to the status of the execution.
+         */
+        void continue_execution(int *status);
+
+        /**
+         * @brief Disassembles the current instruction.
+         */
+        void disassemble();
+
+        /**
+         * @brief Reads memory at the specified address.
+         */
+        void x_read();
+
+        /**
+         * @brief Sets memory at the specified address.
+         */
+        void x_set();
+
+        /**
+         * @brief Executes the next instruction and stops.
+         * 
+         * @param status A pointer to the status of the execution.
+         */
+        void next(int *status);
+
+        /**
+         * @brief Prints the value of the current instruction.
+         */
+        void print();
 };
 
 #endif
