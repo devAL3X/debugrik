@@ -30,13 +30,24 @@ target_link_libraries(${PROJECT_NAME} libdwarf::libdwarf)
 
 enable_testing()
 
-
-add_executable(debugger_tests
+# Utils
+add_executable(debugger_utils_tests
     src/tests.cpp
     src/utils.cpp
 )
-target_link_libraries(debugger_tests
-    gtest_main gmock_main
+target_link_libraries(debugger_utils_tests
+    gtest_main gmock_main)
+
+add_test(NAME UtilsTestsSuite COMMAND debugger_utils_tests)
+
+# Config
+add_executable(debugger_cfg_tests
+    src/cfg.cpp
+    src/cfg_tests.cpp
+    src/utils.cpp
 )
 
-add_test(NAME UtilsTestsSuite COMMAND debugger_tests)
+target_link_libraries(debugger_cfg_tests
+    gtest_main gmock_main)
+
+add_test(NAME CfgTestsSuite COMMAND debugger_cfg_tests)
